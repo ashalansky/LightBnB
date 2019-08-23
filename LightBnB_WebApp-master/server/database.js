@@ -1,5 +1,5 @@
 //const db = require('./db.js');
-const { db } = require('./db.js');
+const db = require('./db.js');
 const properties = require('./json/properties.json');
 const users = require('./json/users.json');
 
@@ -20,6 +20,7 @@ const getUserWithEmail = function(email) {
   } 
   return null;
   })
+  .catch(err => console.error('query error', err.stack));
 }
 exports.getUserWithEmail = getUserWithEmail;
 
@@ -29,8 +30,10 @@ exports.getUserWithEmail = getUserWithEmail;
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithId = function(id) {
+  let user;
+  const valId = id;
   const queryString = `SELECT * FROM users WHERE id = $1`;
-  return db.query(queryString, [users[id]])
+  return db.query(queryString, [valId])
   .then(res => { user = res.rows[0];
   if (user) {
     return user;
@@ -65,15 +68,18 @@ exports.addUser = addUser;
 const getAllReservations = function(guest_id, limit = 10) {
   const queryString = `
   SELECT properties.*, reservations.*, AVG(rating) AS average_rating
-  FROM reservations JOIN properties ON reservations.property_id = properties.id
-  JOIN property_reviews ON properties.id = property_reviews.property.id 
-  WHERE reservations.guest_id = $1 AND reservations.end_date < NOW()::date 
+  FROM reservations
+  JOIN properties ON reservations.property_id = properties.id
+  JOIN property_reviews ON properties.id = property_reviews.property_id 
+  WHERE reservations.guest_id = $1 
+  AND now()::date > end_date 
   GROUP BY properties.id, reservations.id
-  ORDER BY reservations.start_date LIMIT $2;`;
-  return db.query(queryString, [guest_id, limit]
-    .then(res => res.rows[0])
-    .catch(err => console.error('query error', err.stack)));
-}
+  ORDER BY reservations.start_date 
+  LIMIT $2;`;
+  return db.query(queryString, [guest_id, limit])
+    .then(res => res.rows)
+    .catch(err => console.error('query error', err.stack));
+};
 exports.getAllReservations = getAllReservations;
 
 /// Properties
